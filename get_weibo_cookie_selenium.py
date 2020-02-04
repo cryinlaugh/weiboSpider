@@ -34,11 +34,11 @@ def SaveCookieToFile(cookies, filename):
 	filePath.close()
 
 def SaveCookie():
-	# driver = InitDriver()
-	# cookies = ManuallyLogin("https://m.weibo.cn", driver)
-	# filename = "./WeiboCNCookies"
-	# SaveCookieToFile(cookies, filename)
-	# CloseDriver(driver)
+	driver = InitDriver()
+	cookies = ManuallyLogin("https://m.weibo.cn", driver)
+	filename = "./WeiboCNCookies"
+	SaveCookieToFile(cookies, filename)
+	CloseDriver(driver)
 
 	driver = InitDriver()
 	cookies = ManuallyLogin("https://weibo.com", driver)
