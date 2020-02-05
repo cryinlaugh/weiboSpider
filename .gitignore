@@ -1,2 +1,4 @@
 chromedriver*
 output/
+*Cookies
+*.log

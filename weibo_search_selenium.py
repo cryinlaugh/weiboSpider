@@ -10,6 +10,7 @@ import random
 import logging
 import pickle
 import json
+import os
 from selenium import webdriver
 
 chrome_options = webdriver.ChromeOptions()
@@ -75,10 +76,14 @@ def GetComments(driver, mid):
 	#请求评论的json(首页)
 	url = 'https://m.weibo.cn/comments/hotflow?id=%s&mid=%s&max_id_type=0' % (mid, mid)
 	driver.get(url)
+	res = "{}"
 	try:
 		res = driver.find_element_by_xpath('//pre').text
 	except Exception:
-		logger.error('Something wrong with', exc_info=True)
+		logger.error('Something wrong with accessing the first comments page', exc_info=True)
+		logger.error(driver.current_url)
+		logger.error(driver.page_source)
+		return
 	resj = json.loads(res)
 	n_pages = 0
 	#记录首页评论，并请求后续评论页
@@ -122,14 +127,17 @@ def GetComments(driver, mid):
 		try:
 			res = driver.find_element_by_xpath('//pre').text
 		except Exception:
-			logger.error('Something wrong with', exc_info=True)
+			logger.error('Something wrong with accessing the first comments page', exc_info=True)
+			logger.error(driver.current_url)
+			logger.error(driver.page_source)
+			res = '{\"ok\":0}'
 		resj = json.loads(res)
 	#logger.info(resj)
-	if len(results) > 0:
-		df_comments = df_comments.append(results)
-		filePath = './output/comments/comm_%s.xlsx' % mid
-		df_comments.to_excel(filePath,index=0)
-		logger.info('已导出微博%s条数：%s' % (mid,len(results)))
+	
+	df_comments = df_comments.append(results)
+	filePath = './output/comments/comm_%s.xlsx' % mid
+	df_comments.to_excel(filePath,index=0)
+	logger.info('已导出微博%s的评论条数：%s' % (mid,len(results)))
 	return 
 
 #by zwl
@@ -145,11 +153,12 @@ def GetSearchContent():
 	key=''
 	start_time = ''
 	end_time = ''
+	global need_comments
 	while(ok !='ok'):
 		key = input("请输入搜索关键词：")
 		start_time = input("请输入搜索起始日期和时间（yyyy-mm-dd-h):")
 		end_time = input("请输入搜索结束日期和时间（yyyy-mm-dd-h):")
-		need_comments = input("是否同时抓去一级评论（y/n):")
+		need_comments = input("是否同时抓取一级评论（y/n):")
 		ok = input("确认以上输入无误后，输入ok继续，否则直接继续可重新输入:")
 	driver.get("http://s.weibo.com/")
 	logger.info('搜索热点主题：%s' % key)
@@ -157,20 +166,6 @@ def GetSearchContent():
 	time.sleep(3)
 	driver.find_element_by_xpath('//button').click()
 	current_url = driver.current_url.split('&')[0]
-	# start_date = datetime.datetime(2018,9,23,0)
-	# end_date = datetime.datetime(2018,9,24,0)
-	# delta_date = datetime.timedelta(hours=23)
-	# start_stamp = start_date
-	# end_stamp = start_date + delta_date
-	# # while end_stamp <= end_date:
-	# 	url2 = current_url + '&typeall=1&suball=1&timescope=custom:' + str(start_stamp.strftime("%Y-%m-%d")) + ':' + str(end_stamp.strftime("%Y-%m-%d")) + '&Refer=g'
-	# 	url = current_url+'&xsort=hot&suball=1&timescope=custom:'+ str(start_stamp.strftime("%Y-%m-%d")) + ':' + str(end_stamp.strftime("%Y-%m-%d")) + '&Refer=g'
-
-	# 	time.sleep(random.randint(5,10))
-	# 	driver.get(url)
-	# 	handlePage()
-	# 	start_stamp = end_stamp + datetime.timedelta(hours=1)
-	# 	end_stamp = start_stamp + delta_date
 	url = current_url+'&xsort=hot&suball=1&timescope=custom:'+ start_time + ':' + end_time + '&Refer=g'
 	driver.get(url)
 	handlePage()
@@ -260,8 +255,8 @@ def getContent():
 			#是否需要展开全文
 			nodes[i].find_element_by_xpath('.//p[@class="txt"][@node-type="feed_list_content"]/a[@action-type="fl_unfold"]').click()
 			WBNR = nodes[i].find_element_by_xpath('.//p[@class="txt"][@node-type="feed_list_content_full"]').text
-			logger.info('Find Second! %d' % i)
-			logger.info('%s' % WBNR) 
+			#logger.info('Find Second! %d' % i)
+			#logger.info('%s' % WBNR) 
 			#如果为转发微博（搜热点基本上没有）
 			if len(nodes[i].find_elements_by_xpath('.//p[@class="txt"][@node-type="feed_list_content_full"]'))>1:
 				WBNR = WBNR + '\n转发：' +nodes[i].find_element_by_xpath('.//div[@node-type="feed_list_forwardContent"]').text
@@ -271,8 +266,8 @@ def getContent():
 		except:
 			try: 
 				WBNR = nodes[i].find_element_by_xpath('.//p[@class="txt"][@node-type="feed_list_content"]').text
-				logger.info('Find First! %d' % i)
-				logger.info('%s' % WBNR)
+				#logger.info('Find First! %d' % i)
+				#logger.info('%s' % WBNR)
 				if len(nodes[i].find_elements_by_xpath('.//p[@class="txt"][@node-type="feed_list_content"]'))>1:
 					WBNR = WBNR + '\n转发：' +nodes[i].find_element_by_xpath('.//div[@node-type="feed_list_forwardContent"]').text
 			except:
@@ -332,19 +327,26 @@ def getContent():
 		blog['mid'] = mid
 
 		#by zwl 爬取评论
-		if(need_comments == 'y'):
-			GetAndSaveComments(mid)
+		#logger.info("抓去评论？%s" % need_comments)
 
 		results.append(blog)
 	df = df.append(results)
 	
 
 def main():
-	# username = '18115357043' # 填写用户名
-	# password = 'forget123' # 填写密码
-	# LoginWeibo(username, password)
+	#for geting weibos 
 	InitWeiboCOMDriverWithCookie()
 	GetSearchContent()
+	
+	##for getting comments
+
+	#global df
+	#df = pandas.DataFrame(pandas.read_excel("./output/瑞典辱华-2018-09-22-0-2018-09-23-0.xlsx"))
+	for mid in df['mid']:
+		if(os.path.exists("./output/comments/comm_%s.xlsx"%mid)):
+			logger.info("comments of %s already exists."%mid)
+		else:
+			GetAndSaveComments(mid)
 	time.sleep(3)
 	driver.quit()
 
