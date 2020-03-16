@@ -2,3 +2,4 @@ chromedriver*
 output/
 *Cookies
 *.log
+kira/

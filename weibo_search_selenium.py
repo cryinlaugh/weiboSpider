@@ -120,6 +120,9 @@ def GetComments(driver, mid):
 		#请求后续页
 		#获得当前页max_id
 		max_id = comms['max_id']
+		if(max_id == '0'):
+			res = '{\"ok\":0}'
+			continue
 		#logger.info("Max_id of current page %s"%max_id)
 		url = 'https://m.weibo.cn/comments/hotflow?id=%s&mid=%s&max_id=%s&max_id_type=0' % (mid, mid, max_id)
 		time.sleep(random.randint(5,10))
